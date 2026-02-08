@@ -24,7 +24,9 @@ import org.apache.shardingsphere.database.protocol.postgresql.payload.PostgreSQL
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -32,6 +34,8 @@ import org.mockito.quality.Strictness;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.SQLXML;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -66,14 +70,14 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertWriteWithNull() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(null));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(null), Collections.singleton(PostgreSQLColumnType.INT4.getValue()));
         actual.write(payload);
         verify(payload).writeInt4(0xFFFFFFFF);
     }
     
     @Test
     void assertWriteWithBytes() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new byte[]{'a'}));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new byte[]{'a'}), Collections.singleton(PostgreSQLColumnType.BYTEA.getValue()));
         actual.write(payload);
         byte[] expectedBytes = buildExpectedByteaText(new byte[]{'a'});
         verify(payload).writeInt4(expectedBytes.length);
@@ -83,7 +87,7 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteWithSQLXML() throws SQLException {
         when(sqlxml.getString()).thenReturn("value");
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()));
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
         verify(payload).writeInt4(valueBytes.length);
@@ -92,7 +96,7 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertWriteWithString() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton("value"));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton("value"), Collections.singleton(PostgreSQLColumnType.VARCHAR.getValue()));
         assertThat(actual.getData(), is(Collections.singleton("value")));
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
@@ -101,84 +105,197 @@ class PostgreSQLDataRowPacketTest {
     }
     
     @Test
-    void assertWriteWithLocalTime() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(new LinkedList<>(Arrays.asList(
-                LocalTime.of(10, 0, 0, 123_456_000),
-                LocalTime.of(10, 0, 0, 000_000_001),
-                LocalTime.of(10, 0, 0, 123_450_000))));
-        actual.write(payload);
-        byte[] res1 = "10:00:00.123456".getBytes(StandardCharsets.UTF_8);
-        byte[] res2 = "10:00:00".getBytes(StandardCharsets.UTF_8);
-        byte[] res3 = "10:00:00.12345".getBytes(StandardCharsets.UTF_8);
-        verify(payload).writeInt4(res1.length);
-        verify(payload).writeBytes(res1);
-        verify(payload).writeInt4(res2.length);
-        verify(payload).writeBytes(res2);
-        verify(payload).writeInt4(res3.length);
-        verify(payload).writeBytes(res3);
-    }
-    
-    @Test
     void assertWriteWithLocalDateTime() {
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(new LinkedList<>(Arrays.asList(
-                LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000),
-                LocalDateTime.of(2022, 10, 12, 10, 0, 0, 000_000_000),
-                LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_450_000))));
+                Timestamp.valueOf(LocalDateTime.of(2022, 10, 12, 10, 0, 0)),
+                Timestamp.valueOf(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 0)),
+                Timestamp.valueOf(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 100_000_001)),
+                Timestamp.valueOf(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000)),
+                LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_450_000),
+                "2022-10-12 10:10:10.0000",
+                "2022-10-12 10:10:10.1000")),
+                new LinkedList<>(Arrays.asList(
+                        PostgreSQLColumnType.TIMESTAMP.getValue(),
+                        PostgreSQLColumnType.TIMESTAMP.getValue(),
+                        PostgreSQLColumnType.TIMESTAMP.getValue(),
+                        PostgreSQLColumnType.TIMESTAMP.getValue(),
+                        PostgreSQLColumnType.TIMESTAMP.getValue(),
+                        PostgreSQLColumnType.TIMESTAMP.getValue(),
+                        PostgreSQLColumnType.TIMESTAMP.getValue())));
         actual.write(payload);
-        byte[] res1 = "2022-10-12 10:00:00.123456".getBytes(StandardCharsets.UTF_8);
+        InOrder inOrder = Mockito.inOrder(payload);
+        byte[] res1 = "2022-10-12 10:00:00".getBytes(StandardCharsets.UTF_8);
         byte[] res2 = "2022-10-12 10:00:00".getBytes(StandardCharsets.UTF_8);
-        byte[] res3 = "2022-10-12 10:00:00.12345".getBytes(StandardCharsets.UTF_8);
-        verify(payload).writeInt4(res1.length);
-        verify(payload).writeBytes(res1);
-        verify(payload).writeInt4(res2.length);
-        verify(payload).writeBytes(res2);
-        verify(payload).writeInt4(res3.length);
-        verify(payload).writeBytes(res3);
+        byte[] res3 = "2022-10-12 10:00:00.1".getBytes(StandardCharsets.UTF_8);
+        byte[] res4 = "2022-10-12 10:00:00.123456".getBytes(StandardCharsets.UTF_8);
+        byte[] res5 = "2022-10-12 10:00:00.12345".getBytes(StandardCharsets.UTF_8);
+        byte[] res6 = "2022-10-12 10:10:10".getBytes(StandardCharsets.UTF_8);
+        byte[] res7 = "2022-10-12 10:10:10.1".getBytes(StandardCharsets.UTF_8);
+        inOrder.verify(payload).writeInt4(res1.length);
+        inOrder.verify(payload).writeBytes(res1);
+        inOrder.verify(payload).writeInt4(res2.length);
+        inOrder.verify(payload).writeBytes(res2);
+        inOrder.verify(payload).writeInt4(res3.length);
+        inOrder.verify(payload).writeBytes(res3);
+        inOrder.verify(payload).writeInt4(res4.length);
+        inOrder.verify(payload).writeBytes(res4);
+        inOrder.verify(payload).writeInt4(res5.length);
+        inOrder.verify(payload).writeBytes(res5);
+        inOrder.verify(payload).writeInt4(res6.length);
+        inOrder.verify(payload).writeBytes(res6);
+        inOrder.verify(payload).writeInt4(res7.length);
+        inOrder.verify(payload).writeBytes(res7);
     }
     
     @Test
     void assertWriteWithOffsetDateTime() {
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(new LinkedList<>(Arrays.asList(
+                OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 0, ZoneOffset.ofHoursMinutesSeconds(5, 30, 1)),
+                OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 100_000_000, ZoneOffset.ofHoursMinutes(5, 30)),
                 OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000, ZoneOffset.ofHoursMinutes(5, 30)),
-                OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 000_000_000, ZoneOffset.ofHoursMinutes(5, 30)),
-                OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 123_450_000, ZoneOffset.ofHoursMinutes(5, 30)))));
+                OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 123_450_000, ZoneOffset.ofHoursMinutes(2, 30)),
+                Timestamp.valueOf(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000)),
+                OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 0, ZoneOffset.ofHoursMinutes(-2, -30)),
+                "2022-10-12 10:00:00.1200+00:00",
+                "2022-10-12 10:00:00.0+00:00")),
+                new LinkedList<>(Arrays.asList(
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
+                        PostgreSQLColumnType.TIMESTAMPTZ.getValue())));
         actual.write(payload);
-        byte[] res1 = "2022-10-12 04:30:00.123456+00".getBytes(StandardCharsets.UTF_8);
-        byte[] res2 = "2022-10-12 04:30:00+00".getBytes(StandardCharsets.UTF_8);
-        byte[] res3 = "2022-10-12 04:30:00.12345+00".getBytes(StandardCharsets.UTF_8);
-        verify(payload).writeInt4(res1.length);
-        verify(payload).writeBytes(res1);
-        verify(payload).writeInt4(res2.length);
-        verify(payload).writeBytes(res2);
-        verify(payload).writeInt4(res3.length);
-        verify(payload).writeBytes(res3);
+        InOrder inOrder = Mockito.inOrder(payload);
+        byte[] res1 = "2022-10-12 10:00:00+05:30:01".getBytes(StandardCharsets.UTF_8);
+        byte[] res2 = "2022-10-12 10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res3 = "2022-10-12 10:00:00.123456+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res4 = "2022-10-12 10:00:00.12345+02:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res5 = "2022-10-12 10:00:00.123456+00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res6 = "2022-10-12 10:00:00-02:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res7 = "2022-10-12 10:00:00.12+00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res8 = "2022-10-12 10:00:00+00:00".getBytes(StandardCharsets.UTF_8);
+        
+        inOrder.verify(payload).writeInt4(res1.length);
+        inOrder.verify(payload).writeBytes(res1);
+        inOrder.verify(payload).writeInt4(res2.length);
+        inOrder.verify(payload).writeBytes(res2);
+        inOrder.verify(payload).writeInt4(res3.length);
+        inOrder.verify(payload).writeBytes(res3);
+        inOrder.verify(payload).writeInt4(res4.length);
+        inOrder.verify(payload).writeBytes(res4);
+        inOrder.verify(payload).writeInt4(res5.length);
+        inOrder.verify(payload).writeBytes(res5);
+        inOrder.verify(payload).writeInt4(res6.length);
+        inOrder.verify(payload).writeBytes(res6);
+        inOrder.verify(payload).writeInt4(res7.length);
+        inOrder.verify(payload).writeBytes(res7);
+        inOrder.verify(payload).writeInt4(res8.length);
+        inOrder.verify(payload).writeBytes(res8);
+        
     }
     
     @Test
     void assertWriteWithOffsetTime() {
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(new LinkedList<>(Arrays.asList(
+                OffsetTime.of(10, 0, 0, 0, ZoneOffset.ofHoursMinutes(5, 30)),
+                OffsetTime.of(10, 0, 0, 100_000_000, ZoneOffset.ofHoursMinutes(-2, -30)),
+                OffsetTime.of(10, 0, 0, 100_000_000, ZoneOffset.ofHoursMinutes(5, 30)),
+                OffsetTime.of(10, 0, 0, 123_456_000, ZoneOffset.ofHoursMinutes(5, 30)),
                 OffsetTime.of(10, 0, 0, 123_450_000, ZoneOffset.ofHoursMinutes(5, 30)),
-                OffsetTime.of(10, 0, 0, 000_000_000, ZoneOffset.ofHoursMinutes(5, 30)))));
+                "10:00:00.1200+00:00",
+                "10:00:00.0+00:00")),
+                new LinkedList<>(Arrays.asList(
+                        PostgreSQLColumnType.TIMETZ.getValue(),
+                        PostgreSQLColumnType.TIMETZ.getValue(),
+                        PostgreSQLColumnType.TIMETZ.getValue(),
+                        PostgreSQLColumnType.TIMETZ.getValue(),
+                        PostgreSQLColumnType.TIMETZ.getValue(),
+                        PostgreSQLColumnType.TIMETZ.getValue(),
+                        PostgreSQLColumnType.TIMETZ.getValue())));
         actual.write(payload);
-        byte[] res1 = "10:00:00.123450+05:30".getBytes(StandardCharsets.UTF_8);
-        byte[] res2 = "10:00:00+05:30".getBytes(StandardCharsets.UTF_8);
-        verify(payload).writeInt4(res1.length);
-        verify(payload).writeBytes(res1);
-        verify(payload).writeInt4(res2.length);
-        verify(payload).writeBytes(res2);
+        InOrder inOrder = Mockito.inOrder(payload);
+        byte[] res1 = "10:00:00+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res2 = "10:00:00.1-02:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res3 = "10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res4 = "10:00:00.123456+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res5 = "10:00:00.12345+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res6 = "10:00:00.12+00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res7 = "10:00:00+00:00".getBytes(StandardCharsets.UTF_8);
+        inOrder.verify(payload).writeInt4(res1.length);
+        inOrder.verify(payload).writeBytes(res1);
+        inOrder.verify(payload).writeInt4(res2.length);
+        inOrder.verify(payload).writeBytes(res2);
+        inOrder.verify(payload).writeInt4(res3.length);
+        inOrder.verify(payload).writeBytes(res3);
+        inOrder.verify(payload).writeInt4(res4.length);
+        inOrder.verify(payload).writeBytes(res4);
+        inOrder.verify(payload).writeInt4(res5.length);
+        inOrder.verify(payload).writeBytes(res5);
+        inOrder.verify(payload).writeInt4(res6.length);
+        inOrder.verify(payload).writeBytes(res6);
+        inOrder.verify(payload).writeInt4(res7.length);
+        inOrder.verify(payload).writeBytes(res7);
+    }
+    
+    @Test
+    void assertWriteWithLocalTime() {
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(new LinkedList<>(Arrays.asList(
+                Time.valueOf(LocalTime.of(10, 0, 0, 0)),
+                LocalTime.of(10, 0, 0, 100_000_000),
+                Time.valueOf(LocalTime.of(10, 0)),
+                LocalTime.of(10, 0, 0),
+                LocalTime.of(10, 0, 0, 123_450_000),
+                "10:00:00.1200",
+                "10:00:00.0")),
+                new LinkedList<>(Arrays.asList(
+                        PostgreSQLColumnType.TIME.getValue(),
+                        PostgreSQLColumnType.TIME.getValue(),
+                        PostgreSQLColumnType.TIME.getValue(),
+                        PostgreSQLColumnType.TIME.getValue(),
+                        PostgreSQLColumnType.TIME.getValue(),
+                        PostgreSQLColumnType.TIME.getValue(),
+                        PostgreSQLColumnType.TIME.getValue())));
+        actual.write(payload);
+        InOrder inOrder = Mockito.inOrder(payload);
+        byte[] res1 = "10:00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res2 = "10:00:00.1".getBytes(StandardCharsets.UTF_8);
+        byte[] res3 = "10:00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res4 = "10:00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res5 = "10:00:00.12345".getBytes(StandardCharsets.UTF_8);
+        byte[] res6 = "10:00:00.12".getBytes(StandardCharsets.UTF_8);
+        byte[] res7 = "10:00:00".getBytes(StandardCharsets.UTF_8);
+        inOrder.verify(payload).writeInt4(res1.length);
+        inOrder.verify(payload).writeBytes(res1);
+        inOrder.verify(payload).writeInt4(res2.length);
+        inOrder.verify(payload).writeBytes(res2);
+        inOrder.verify(payload).writeInt4(res3.length);
+        inOrder.verify(payload).writeBytes(res3);
+        inOrder.verify(payload).writeInt4(res4.length);
+        inOrder.verify(payload).writeBytes(res4);
+        inOrder.verify(payload).writeInt4(res5.length);
+        inOrder.verify(payload).writeBytes(res5);
+        inOrder.verify(payload).writeInt4(res6.length);
+        inOrder.verify(payload).writeBytes(res6);
+        inOrder.verify(payload).writeInt4(res7.length);
+        inOrder.verify(payload).writeBytes(res7);
     }
     
     @Test
     void assertWriteWithSQLXML4Error() throws SQLException {
         when(sqlxml.getString()).thenThrow(new SQLException("mock"));
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()));
         assertThrows(RuntimeException.class, () -> actual.write(payload));
         verify(payload, never()).writeStringEOF(any());
     }
     
     @Test
     void assertWriteBinaryNull() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, null)));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(
+                Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, null)),
+                Collections.singleton(PostgreSQLColumnType.INT4.getValue()));
         actual.write(payload);
         verify(payload).writeInt2(1);
         verify(payload).writeInt4(0xFFFFFFFF);
@@ -187,7 +304,9 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteBinaryInt4() {
         final int value = 12345678;
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, value)));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(
+                Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, value)),
+                Collections.singleton(PostgreSQLColumnType.INT4.getValue()));
         actual.write(payload);
         verify(payload).writeInt2(1);
         verify(payload).writeInt4(4);
@@ -196,7 +315,7 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertGetIdentifier() {
-        assertThat(new PostgreSQLDataRowPacket(Collections.emptyList()).getIdentifier(), is(PostgreSQLMessagePacketType.DATA_ROW));
+        assertThat(new PostgreSQLDataRowPacket(Collections.emptyList(), Collections.emptyList()).getIdentifier(), is(PostgreSQLMessagePacketType.DATA_ROW));
     }
     
     private byte[] buildExpectedByteaText(final byte[] value) {
