@@ -78,6 +78,8 @@ public final class Portal {
     
     private final ProxyDatabaseConnectionManager databaseConnectionManager;
     
+    private Collection<Integer> columnTypes;
+    
     private ResponseHeader responseHeader;
     
     public Portal(final String name, final PostgreSQLServerPreparedStatement preparedStatement, final List<Object> params, final List<PostgreSQLValueFormat> resultFormats,
@@ -129,8 +131,10 @@ public final class Portal {
     private Collection<PostgreSQLColumnDescription> createColumnDescriptions(final QueryResponseHeader queryResponseHeader) {
         Collection<PostgreSQLColumnDescription> result = new LinkedList<>();
         int columnIndex = 0;
+        columnTypes = new LinkedList<>();
         for (QueryHeader each : queryResponseHeader.getQueryHeaders()) {
             PostgreSQLValueFormat valueFormat = determineValueFormat(columnIndex);
+            columnTypes.add(each.getColumnType());
             result.add(new PostgreSQLColumnDescription(each.getColumnLabel(), ++columnIndex, each.getColumnType(), each.getColumnLength(), each.getColumnTypeName(), valueFormat.getCode()));
         }
         return result;
@@ -171,7 +175,7 @@ public final class Portal {
     }
     
     private PostgreSQLPacket nextPacket() throws SQLException {
-        return new PostgreSQLDataRowPacket(getData(proxyBackendHandler.getRowData()));
+        return new PostgreSQLDataRowPacket(getData(proxyBackendHandler.getRowData()), columnTypes);
     }
     
     private List<Object> getData(final QueryResponseRow queryResponseRow) {
