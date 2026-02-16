@@ -36,10 +36,13 @@ import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.OffsetTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
@@ -115,13 +118,13 @@ class PostgreSQLDataRowPacketTest {
                 "2022-10-12 10:10:10.0000",
                 "2022-10-12 10:10:10.1000")),
                 new LinkedList<>(Arrays.asList(
-                        PostgreSQLColumnType.TIMESTAMP.getValue(),
-                        PostgreSQLColumnType.TIMESTAMP.getValue(),
-                        PostgreSQLColumnType.TIMESTAMP.getValue(),
-                        PostgreSQLColumnType.TIMESTAMP.getValue(),
-                        PostgreSQLColumnType.TIMESTAMP.getValue(),
-                        PostgreSQLColumnType.TIMESTAMP.getValue(),
-                        PostgreSQLColumnType.TIMESTAMP.getValue())));
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP,
+                        Types.TIMESTAMP)));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
         byte[] res1 = "2022-10-12 10:00:00".getBytes(StandardCharsets.UTF_8);
@@ -157,26 +160,32 @@ class PostgreSQLDataRowPacketTest {
                 Timestamp.valueOf(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000)),
                 OffsetDateTime.of(2022, 10, 12, 10, 0, 0, 0, ZoneOffset.ofHoursMinutes(-2, -30)),
                 "2022-10-12 10:00:00.1200+00:00",
-                "2022-10-12 10:00:00.0+00:00")),
+                "2022-10-12 10:00:00.0+00:00",
+                LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000))),
                 new LinkedList<>(Arrays.asList(
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue(),
-                        PostgreSQLColumnType.TIMESTAMPTZ.getValue())));
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
+                        Types.TIMESTAMP_WITH_TIMEZONE)));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
+        ZoneOffset systemOffset = ZoneId.systemDefault().getRules()
+                .getOffset(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000));
         byte[] res1 = "2022-10-12 10:00:00+05:30:01".getBytes(StandardCharsets.UTF_8);
         byte[] res2 = "2022-10-12 10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res3 = "2022-10-12 10:00:00.123456+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res4 = "2022-10-12 10:00:00.12345+02:30".getBytes(StandardCharsets.UTF_8);
-        byte[] res5 = "2022-10-12 10:00:00.123456+00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res5 = ("2022-10-12 10:00:00.123456" + systemOffset.getId()).getBytes(StandardCharsets.UTF_8);
         byte[] res6 = "2022-10-12 10:00:00-02:30".getBytes(StandardCharsets.UTF_8);
         byte[] res7 = "2022-10-12 10:00:00.12+00:00".getBytes(StandardCharsets.UTF_8);
         byte[] res8 = "2022-10-12 10:00:00+00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res9 = ("2022-10-12 10:00:00.123456" + systemOffset).getBytes(StandardCharsets.UTF_8);
         
         inOrder.verify(payload).writeInt4(res1.length);
         inOrder.verify(payload).writeBytes(res1);
@@ -194,6 +203,8 @@ class PostgreSQLDataRowPacketTest {
         inOrder.verify(payload).writeBytes(res7);
         inOrder.verify(payload).writeInt4(res8.length);
         inOrder.verify(payload).writeBytes(res8);
+        inOrder.verify(payload).writeInt4(res9.length);
+        inOrder.verify(payload).writeBytes(res9);
         
     }
     
@@ -206,17 +217,21 @@ class PostgreSQLDataRowPacketTest {
                 OffsetTime.of(10, 0, 0, 123_456_000, ZoneOffset.ofHoursMinutes(5, 30)),
                 OffsetTime.of(10, 0, 0, 123_450_000, ZoneOffset.ofHoursMinutes(5, 30)),
                 "10:00:00.1200+00:00",
-                "10:00:00.0+00:00")),
+                "10:00:00.0+00:00",
+                LocalTime.of(10, 0, 12, 123_000_000))),
                 new LinkedList<>(Arrays.asList(
-                        PostgreSQLColumnType.TIMETZ.getValue(),
-                        PostgreSQLColumnType.TIMETZ.getValue(),
-                        PostgreSQLColumnType.TIMETZ.getValue(),
-                        PostgreSQLColumnType.TIMETZ.getValue(),
-                        PostgreSQLColumnType.TIMETZ.getValue(),
-                        PostgreSQLColumnType.TIMETZ.getValue(),
-                        PostgreSQLColumnType.TIMETZ.getValue())));
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE,
+                        Types.TIME_WITH_TIMEZONE)));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
+        ZoneOffset systemOffset = ZoneId.systemDefault().getRules()
+                .getOffset(LocalTime.of(10, 0, 12, 123_000_000).atDate(LocalDate.now()));
         byte[] res1 = "10:00:00+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res2 = "10:00:00.1-02:30".getBytes(StandardCharsets.UTF_8);
         byte[] res3 = "10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
@@ -224,6 +239,7 @@ class PostgreSQLDataRowPacketTest {
         byte[] res5 = "10:00:00.12345+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res6 = "10:00:00.12+00:00".getBytes(StandardCharsets.UTF_8);
         byte[] res7 = "10:00:00+00:00".getBytes(StandardCharsets.UTF_8);
+        byte[] res8 = ("10:00:12.123" + systemOffset).getBytes(StandardCharsets.UTF_8);
         inOrder.verify(payload).writeInt4(res1.length);
         inOrder.verify(payload).writeBytes(res1);
         inOrder.verify(payload).writeInt4(res2.length);
@@ -238,6 +254,8 @@ class PostgreSQLDataRowPacketTest {
         inOrder.verify(payload).writeBytes(res6);
         inOrder.verify(payload).writeInt4(res7.length);
         inOrder.verify(payload).writeBytes(res7);
+        inOrder.verify(payload).writeInt4(res8.length);
+        inOrder.verify(payload).writeBytes(res8);
     }
     
     @Test
@@ -251,13 +269,13 @@ class PostgreSQLDataRowPacketTest {
                 "10:00:00.1200",
                 "10:00:00.0")),
                 new LinkedList<>(Arrays.asList(
-                        PostgreSQLColumnType.TIME.getValue(),
-                        PostgreSQLColumnType.TIME.getValue(),
-                        PostgreSQLColumnType.TIME.getValue(),
-                        PostgreSQLColumnType.TIME.getValue(),
-                        PostgreSQLColumnType.TIME.getValue(),
-                        PostgreSQLColumnType.TIME.getValue(),
-                        PostgreSQLColumnType.TIME.getValue())));
+                        Types.TIME,
+                        Types.TIME,
+                        Types.TIME,
+                        Types.TIME,
+                        Types.TIME,
+                        Types.TIME,
+                        Types.TIME)));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
         byte[] res1 = "10:00:00".getBytes(StandardCharsets.UTF_8);
