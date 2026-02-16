@@ -20,7 +20,6 @@ package org.apache.shardingsphere.database.protocol.postgresql.packet.command.qu
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.shardingsphere.database.protocol.binary.BinaryCell;
-import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.PostgreSQLColumnType;
 import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.bind.protocol.PostgreSQLBinaryProtocolValue;
 import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.bind.protocol.PostgreSQLBinaryProtocolValueFactory;
 import org.apache.shardingsphere.database.protocol.postgresql.packet.identifier.PostgreSQLIdentifierPacket;
@@ -33,6 +32,8 @@ import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -42,6 +43,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 
 /**
@@ -78,7 +80,12 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
     @Override
     protected void write(final PostgreSQLPacketPayload payload) {
         payload.writeInt2(data.size());
-        Iterator<Integer> columnTypeIterator = columnTypes.iterator();
+        Iterator<Integer> columnTypeIterator;
+        if (columnTypes != null) {
+            columnTypeIterator = columnTypes.iterator();
+        } else {
+            columnTypeIterator = Collections.nCopies(data.size(), 0).iterator();
+        }
         for (Object each : data) {
             if (!columnTypeIterator.hasNext()) {
                 break;
@@ -116,10 +123,10 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
             byte[] columnData = ((Boolean) each ? "t" : "f").getBytes(payload.getCharset());
             payload.writeInt4(columnData.length);
             payload.writeBytes(columnData);
-        } else if (PostgreSQLColumnType.TIMETZ.getValue() == columnType) {
+        } else if (Types.TIME_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalTime) {
-                formatted = TIME_FORMATTER.format((LocalTime) each);
+                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(ZoneOffset.systemDefault()));
             } else if (each instanceof OffsetTime) {
                 formatted = TIME_FORMATTER.format((OffsetTime) each);
             } else {
@@ -128,21 +135,21 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
             byte[] columnData = formatted.getBytes(payload.getCharset());
             payload.writeInt4(columnData.length);
             payload.writeBytes(columnData);
-        } else if (PostgreSQLColumnType.TIMESTAMPTZ.getValue() == columnType) {
+        } else if (Types.TIMESTAMP_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalDateTime) {
-                formatted = DATE_TIME_FORMATTER.format((LocalDateTime) each);
+                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(ZoneOffset.systemDefault()));
             } else if (each instanceof OffsetDateTime) {
                 formatted = DATE_TIME_FORMATTER.format((OffsetDateTime) each);
             } else if (each instanceof Timestamp) {
-                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atOffset(ZoneOffset.UTC));
+                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(ZoneOffset.systemDefault()));
             } else {
                 formatted = formatToPostgresTimestamp(each.toString());
             }
             byte[] columnData = formatted.getBytes(payload.getCharset());
             payload.writeInt4(columnData.length);
             payload.writeBytes(columnData);
-        } else if (PostgreSQLColumnType.TIME.getValue() == columnType) {
+        } else if (Types.TIME == columnType) {
             String formatted = "";
             if (each instanceof LocalTime) {
                 formatted = TIME_FORMATTER.format((LocalTime) each);
@@ -155,7 +162,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
             byte[] columnData = formatted.getBytes(payload.getCharset());
             payload.writeInt4(columnData.length);
             payload.writeBytes(columnData);
-        } else if (PostgreSQLColumnType.TIMESTAMP.getValue() == columnType) {
+        } else if (Types.TIMESTAMP == columnType) {
             String formatted = "";
             if (each instanceof LocalDateTime) {
                 formatted = DATE_TIME_FORMATTER.format((LocalDateTime) each);

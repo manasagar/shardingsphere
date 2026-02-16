@@ -150,6 +150,9 @@ public final class Portal {
     public List<DatabasePacket> execute(final int maxRows) throws SQLException {
         int fetchSize = maxRows > 0 ? maxRows : Integer.MAX_VALUE;
         List<DatabasePacket> result = new LinkedList<>();
+        if (responseHeader instanceof QueryResponseHeader) {
+            createRowDescriptionPacket((QueryResponseHeader) responseHeader);
+        }
         for (int i = 0; i < fetchSize && hasNext(); i++) {
             result.add(nextPacket());
         }
