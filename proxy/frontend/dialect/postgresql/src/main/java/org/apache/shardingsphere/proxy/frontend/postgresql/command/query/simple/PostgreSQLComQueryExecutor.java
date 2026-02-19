@@ -50,6 +50,7 @@ import org.apache.shardingsphere.sql.parser.statement.core.statement.type.tcl.Co
 import org.apache.shardingsphere.sql.parser.statement.core.statement.type.tcl.RollbackStatement;
 
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -64,6 +65,8 @@ public final class PostgreSQLComQueryExecutor implements QueryCommandExecutor {
     
     private final ProxyBackendHandler proxyBackendHandler;
     
+    private final ConnectionSession connectionSession;
+    
     @Getter
     private volatile ResponseType responseType;
     
@@ -71,6 +74,7 @@ public final class PostgreSQLComQueryExecutor implements QueryCommandExecutor {
     
     public PostgreSQLComQueryExecutor(final PortalContext portalContext, final PostgreSQLComQueryPacket packet, final ConnectionSession connectionSession) throws SQLException {
         this.portalContext = portalContext;
+        this.connectionSession = connectionSession;
         DatabaseType databaseType = TypedSPILoader.getService(DatabaseType.class, "PostgreSQL");
         SQLStatement sqlStatement = ProxySQLComQueryParser.parse(packet.getSQL(), databaseType, connectionSession);
         proxyBackendHandler = ProxyBackendHandlerFactory.newInstance(databaseType, packet.getSQL(), sqlStatement, connectionSession, packet.getHintValueContext());
@@ -131,7 +135,20 @@ public final class PostgreSQLComQueryExecutor implements QueryCommandExecutor {
     
     @Override
     public PostgreSQLPacket getQueryRowPacket() throws SQLException {
-        return new PostgreSQLDataRowPacket(proxyBackendHandler.getRowData().getData(), columnTypes);
+        return new PostgreSQLDataRowPacket(proxyBackendHandler.getRowData().getData(), columnTypes, extractSessionTimeZone(connectionSession));
+    }
+    
+    private static ZoneId extractSessionTimeZone(final ConnectionSession connectionSession) {
+        if (null == connectionSession) {
+            return ZoneId.of("UTC");
+        }
+        String tzName = connectionSession.getRequiredSessionVariableRecorder()
+                .getVariable("timezone");
+        if (ZoneId.getAvailableZoneIds().contains(tzName)) {
+            return ZoneId.of(tzName);
+        } else {
+            return ZoneId.of("UTC");
+        }
     }
     
     @Override

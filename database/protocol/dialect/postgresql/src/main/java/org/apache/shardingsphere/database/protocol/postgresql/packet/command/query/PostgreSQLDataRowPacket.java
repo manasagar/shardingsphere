@@ -38,7 +38,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.OffsetTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
@@ -77,20 +77,20 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
     
     private final Collection<Integer> columnTypes;
     
+    private final ZoneId sessionTimeZone;
+    
     @Override
     protected void write(final PostgreSQLPacketPayload payload) {
         payload.writeInt2(data.size());
         Iterator<Integer> columnTypeIterator;
+        
         if (columnTypes != null) {
             columnTypeIterator = columnTypes.iterator();
         } else {
-            columnTypeIterator = Collections.nCopies(data.size(), 0).iterator();
+            columnTypeIterator = Collections.nCopies(data.size(), Types.VARCHAR).iterator();
         }
         for (Object each : data) {
-            if (!columnTypeIterator.hasNext()) {
-                break;
-            }
-            Integer columnType = columnTypeIterator.next();
+            int columnType = columnTypeIterator.hasNext() ? columnTypeIterator.next() : Types.VARCHAR;
             if (each instanceof BinaryCell) {
                 writeBinaryValue(payload, (BinaryCell) each);
             } else {
@@ -126,7 +126,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } else if (Types.TIME_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalTime) {
-                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(ZoneOffset.systemDefault()));
+                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(sessionTimeZone));
             } else if (each instanceof OffsetTime) {
                 formatted = TIME_FORMATTER.format((OffsetTime) each);
             } else {
@@ -138,11 +138,11 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } else if (Types.TIMESTAMP_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalDateTime) {
-                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(ZoneOffset.systemDefault()));
+                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(sessionTimeZone));
             } else if (each instanceof OffsetDateTime) {
                 formatted = DATE_TIME_FORMATTER.format((OffsetDateTime) each);
             } else if (each instanceof Timestamp) {
-                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(ZoneOffset.systemDefault()));
+                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(sessionTimeZone));
             } else {
                 formatted = formatToPostgresTimestamp(each.toString());
             }
