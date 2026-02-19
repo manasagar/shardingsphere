@@ -73,14 +73,14 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertWriteWithNull() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(null), Collections.singleton(PostgreSQLColumnType.INT4.getValue()));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(null), Collections.singleton(PostgreSQLColumnType.INT4.getValue()), ZoneId.of("UTC"));
         actual.write(payload);
         verify(payload).writeInt4(0xFFFFFFFF);
     }
     
     @Test
     void assertWriteWithBytes() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new byte[]{'a'}), Collections.singleton(PostgreSQLColumnType.BYTEA.getValue()));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new byte[]{'a'}), Collections.singleton(PostgreSQLColumnType.BYTEA.getValue()), ZoneId.of("UTC"));
         actual.write(payload);
         byte[] expectedBytes = buildExpectedByteaText(new byte[]{'a'});
         verify(payload).writeInt4(expectedBytes.length);
@@ -90,7 +90,7 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteWithSQLXML() throws SQLException {
         when(sqlxml.getString()).thenReturn("value");
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()), ZoneId.of("UTC"));
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
         verify(payload).writeInt4(valueBytes.length);
@@ -99,8 +99,18 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertWriteWithString() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton("value"), Collections.singleton(PostgreSQLColumnType.VARCHAR.getValue()));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton("value"), Collections.singleton(PostgreSQLColumnType.VARCHAR.getValue()), ZoneId.of("UTC"));
         assertThat(actual.getData(), is(Collections.singleton("value")));
+        actual.write(payload);
+        byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
+        verify(payload).writeInt4(valueBytes.length);
+        verify(payload).writeBytes(valueBytes);
+    }
+    
+    @Test
+    void assertInequalTypeColumn() {
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Arrays.asList("value", "work"), Collections.singleton(PostgreSQLColumnType.VARCHAR.getValue()), ZoneId.of("UTC"));
+        assertThat(actual.getData(), is(Arrays.asList("value", "work")));
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
         verify(payload).writeInt4(valueBytes.length);
@@ -124,7 +134,8 @@ class PostgreSQLDataRowPacketTest {
                         Types.TIMESTAMP,
                         Types.TIMESTAMP,
                         Types.TIMESTAMP,
-                        Types.TIMESTAMP)));
+                        Types.TIMESTAMP)),
+                ZoneId.of("UTC"));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
         byte[] res1 = "2022-10-12 10:00:00".getBytes(StandardCharsets.UTF_8);
@@ -172,10 +183,11 @@ class PostgreSQLDataRowPacketTest {
                         Types.TIMESTAMP_WITH_TIMEZONE,
                         Types.TIMESTAMP_WITH_TIMEZONE,
                         Types.TIMESTAMP_WITH_TIMEZONE,
-                        Types.TIMESTAMP_WITH_TIMEZONE)));
+                        Types.TIMESTAMP_WITH_TIMEZONE)),
+                ZoneId.of("Asia/Kolkata"));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
-        ZoneOffset systemOffset = ZoneId.systemDefault().getRules()
+        ZoneOffset systemOffset = ZoneId.of("Asia/Kolkata").getRules()
                 .getOffset(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000));
         byte[] res1 = "2022-10-12 10:00:00+05:30:01".getBytes(StandardCharsets.UTF_8);
         byte[] res2 = "2022-10-12 10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
@@ -227,10 +239,11 @@ class PostgreSQLDataRowPacketTest {
                         Types.TIME_WITH_TIMEZONE,
                         Types.TIME_WITH_TIMEZONE,
                         Types.TIME_WITH_TIMEZONE,
-                        Types.TIME_WITH_TIMEZONE)));
+                        Types.TIME_WITH_TIMEZONE)),
+                ZoneId.of("Asia/Kolkata"));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
-        ZoneOffset systemOffset = ZoneId.systemDefault().getRules()
+        ZoneOffset systemOffset = ZoneId.of("Asia/Kolkata").getRules()
                 .getOffset(LocalTime.of(10, 0, 12, 123_000_000).atDate(LocalDate.now()));
         byte[] res1 = "10:00:00+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res2 = "10:00:00.1-02:30".getBytes(StandardCharsets.UTF_8);
@@ -275,7 +288,8 @@ class PostgreSQLDataRowPacketTest {
                         Types.TIME,
                         Types.TIME,
                         Types.TIME,
-                        Types.TIME)));
+                        Types.TIME)),
+                ZoneId.of("UTC"));
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
         byte[] res1 = "10:00:00".getBytes(StandardCharsets.UTF_8);
@@ -304,7 +318,7 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteWithSQLXML4Error() throws SQLException {
         when(sqlxml.getString()).thenThrow(new SQLException("mock"));
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()));
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()), ZoneId.of("UTC"));
         assertThrows(RuntimeException.class, () -> actual.write(payload));
         verify(payload, never()).writeStringEOF(any());
     }
@@ -313,7 +327,7 @@ class PostgreSQLDataRowPacketTest {
     void assertWriteBinaryNull() {
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(
                 Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, null)),
-                Collections.singleton(PostgreSQLColumnType.INT4.getValue()));
+                Collections.singleton(PostgreSQLColumnType.INT4.getValue()), ZoneId.of("UTC"));
         actual.write(payload);
         verify(payload).writeInt2(1);
         verify(payload).writeInt4(0xFFFFFFFF);
@@ -324,7 +338,7 @@ class PostgreSQLDataRowPacketTest {
         final int value = 12345678;
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(
                 Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, value)),
-                Collections.singleton(PostgreSQLColumnType.INT4.getValue()));
+                Collections.singleton(PostgreSQLColumnType.INT4.getValue()), ZoneId.of("UTC"));
         actual.write(payload);
         verify(payload).writeInt2(1);
         verify(payload).writeInt4(4);
@@ -333,7 +347,7 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertGetIdentifier() {
-        assertThat(new PostgreSQLDataRowPacket(Collections.emptyList(), Collections.emptyList()).getIdentifier(), is(PostgreSQLMessagePacketType.DATA_ROW));
+        assertThat(new PostgreSQLDataRowPacket(Collections.emptyList(), Collections.emptyList(), ZoneId.of("UTC")).getIdentifier(), is(PostgreSQLMessagePacketType.DATA_ROW));
     }
     
     private byte[] buildExpectedByteaText(final byte[] value) {

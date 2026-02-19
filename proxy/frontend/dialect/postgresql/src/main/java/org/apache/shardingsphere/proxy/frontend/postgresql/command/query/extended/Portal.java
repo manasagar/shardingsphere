@@ -49,6 +49,7 @@ import org.apache.shardingsphere.proxy.backend.response.header.ResponseHeader;
 import org.apache.shardingsphere.proxy.backend.response.header.query.QueryHeader;
 import org.apache.shardingsphere.proxy.backend.response.header.query.QueryResponseHeader;
 import org.apache.shardingsphere.proxy.backend.response.header.update.UpdateResponseHeader;
+import org.apache.shardingsphere.proxy.backend.session.ConnectionSession;
 import org.apache.shardingsphere.proxy.frontend.postgresql.command.query.PostgreSQLCommand;
 import org.apache.shardingsphere.sql.parser.statement.core.segment.dal.VariableAssignSegment;
 import org.apache.shardingsphere.sql.parser.statement.core.statement.SQLStatement;
@@ -56,6 +57,7 @@ import org.apache.shardingsphere.sql.parser.statement.core.statement.type.dal.Em
 import org.apache.shardingsphere.sql.parser.statement.core.statement.type.dal.SetStatement;
 
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -78,6 +80,7 @@ public final class Portal {
     
     private final ProxyDatabaseConnectionManager databaseConnectionManager;
     
+    @Getter
     private Collection<Integer> columnTypes;
     
     private ResponseHeader responseHeader;
@@ -178,7 +181,7 @@ public final class Portal {
     }
     
     private PostgreSQLPacket nextPacket() throws SQLException {
-        return new PostgreSQLDataRowPacket(getData(proxyBackendHandler.getRowData()), columnTypes);
+        return new PostgreSQLDataRowPacket(getData(proxyBackendHandler.getRowData()), columnTypes, extractSessionTimeZone(databaseConnectionManager));
     }
     
     private List<Object> getData(final QueryResponseRow queryResponseRow) {
@@ -228,6 +231,21 @@ public final class Portal {
     
     private long getUpdateCount() {
         return responseHeader instanceof UpdateResponseHeader ? ((UpdateResponseHeader) responseHeader).getUpdateCount() : 0L;
+    }
+    
+    private static ZoneId extractSessionTimeZone(final ProxyDatabaseConnectionManager databaseConnectionManager) {
+        ConnectionSession connectionSession = databaseConnectionManager.getConnectionSession();
+        if (null == connectionSession) {
+            return ZoneId.of("UTC");
+        }
+        String tzName = connectionSession.getRequiredSessionVariableRecorder()
+                .getVariable("timezone");
+        if (ZoneId.getAvailableZoneIds().contains(tzName)) {
+            return ZoneId.of(tzName);
+        } else {
+            return ZoneId.of("UTC");
+        }
+        
     }
     
     /**
