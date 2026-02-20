@@ -45,6 +45,7 @@ import java.time.temporal.ChronoField;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.regex.Pattern;
 
 /**
  * Data row packet for PostgreSQL.
@@ -52,6 +53,8 @@ import java.util.Iterator;
 @RequiredArgsConstructor
 @Getter
 public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
+    
+    private static final Pattern OFFSET_PATTERN = Pattern.compile("^[+-](?:0[0-9]|1[0-4]):[0-5][0-9](?::[0-5][0-9])?$");
     
     private static final byte[] HEX_DIGITS = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
     
@@ -77,7 +80,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
     
     private final Collection<Integer> columnTypes;
     
-    private final ZoneId sessionTimeZone;
+    private final String sessionTimeZone;
     
     @Override
     protected void write(final PostgreSQLPacketPayload payload) {
@@ -126,7 +129,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } else if (Types.TIME_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalTime) {
-                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(sessionTimeZone));
+                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(getSessionZone(sessionTimeZone)));
             } else if (each instanceof OffsetTime) {
                 formatted = TIME_FORMATTER.format((OffsetTime) each);
             } else {
@@ -138,11 +141,11 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } else if (Types.TIMESTAMP_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalDateTime) {
-                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(sessionTimeZone));
+                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(getSessionZone(sessionTimeZone)));
             } else if (each instanceof OffsetDateTime) {
                 formatted = DATE_TIME_FORMATTER.format((OffsetDateTime) each);
             } else if (each instanceof Timestamp) {
-                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(sessionTimeZone));
+                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(getSessionZone(sessionTimeZone)));
             } else {
                 formatted = formatToPostgresTimestamp(each.toString());
             }
@@ -209,6 +212,30 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } catch (final SQLException ex) {
             throw new IllegalStateException(ex);
         }
+    }
+    
+    private ZoneId getSessionZone(final String sessionTimeZone) {
+        if (null == sessionTimeZone || sessionTimeZone.trim().isEmpty()) {
+            return ZoneId.of("UTC");
+        }
+        String timeZone = sessionTimeZone.replaceAll("^['\"]|['\"]$", "").trim();
+        if (ZoneId.getAvailableZoneIds().contains(timeZone)) {
+            return ZoneId.of(timeZone);
+        } else if (OFFSET_PATTERN.matcher(timeZone).matches() && isValidOffset(timeZone)) {
+            return ZoneId.of(timeZone);
+        }
+        return ZoneId.of("UTC");
+    }
+    
+    private boolean isValidOffset(final String offsetStr) {
+        String[] parts = offsetStr.substring(1).split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+        int seconds = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+        boolean validHours = hours >= 0 && hours <= 18;
+        boolean validMinutes = minutes >= 0 && minutes <= 59;
+        boolean validSeconds = seconds >= 0 && seconds <= 59;
+        return validHours && validMinutes && validSeconds;
     }
     
     @Override
