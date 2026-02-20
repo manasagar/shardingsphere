@@ -57,7 +57,6 @@ import org.apache.shardingsphere.sql.parser.statement.core.statement.type.dal.Em
 import org.apache.shardingsphere.sql.parser.statement.core.statement.type.dal.SetStatement;
 
 import java.sql.SQLException;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -233,18 +232,13 @@ public final class Portal {
         return responseHeader instanceof UpdateResponseHeader ? ((UpdateResponseHeader) responseHeader).getUpdateCount() : 0L;
     }
     
-    private static ZoneId extractSessionTimeZone(final ProxyDatabaseConnectionManager databaseConnectionManager) {
+    private static String extractSessionTimeZone(final ProxyDatabaseConnectionManager databaseConnectionManager) {
         ConnectionSession connectionSession = databaseConnectionManager.getConnectionSession();
         if (null == connectionSession) {
-            return ZoneId.of("UTC");
+            return "UTC";
         }
-        String tzName = connectionSession.getRequiredSessionVariableRecorder()
+        return connectionSession.getRequiredSessionVariableRecorder()
                 .getVariable("timezone");
-        if (ZoneId.getAvailableZoneIds().contains(tzName)) {
-            return ZoneId.of(tzName);
-        } else {
-            return ZoneId.of("UTC");
-        }
         
     }
     

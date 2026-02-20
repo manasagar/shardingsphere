@@ -50,7 +50,6 @@ import org.apache.shardingsphere.sql.parser.statement.core.statement.type.tcl.Co
 import org.apache.shardingsphere.sql.parser.statement.core.statement.type.tcl.RollbackStatement;
 
 import java.sql.SQLException;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -138,17 +137,12 @@ public final class OpenGaussComQueryExecutor implements QueryCommandExecutor {
         return new PostgreSQLDataRowPacket(proxyBackendHandler.getRowData().getData(), columnTypes, extractSessionTimeZone(connectionSession));
     }
     
-    private static ZoneId extractSessionTimeZone(final ConnectionSession connectionSession) {
+    private static String extractSessionTimeZone(final ConnectionSession connectionSession) {
         if (null == connectionSession) {
-            return ZoneId.of("UTC");
+            return "UTC";
         }
-        String tzName = connectionSession.getRequiredSessionVariableRecorder()
+        return connectionSession.getRequiredSessionVariableRecorder()
                 .getVariable("timezone");
-        if (ZoneId.getAvailableZoneIds().contains(tzName)) {
-            return ZoneId.of(tzName);
-        } else {
-            return ZoneId.of("UTC");
-        }
     }
     
     @Override
