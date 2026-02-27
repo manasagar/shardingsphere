@@ -18,7 +18,6 @@
 package org.apache.shardingsphere.database.protocol.postgresql.packet.command.query;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import org.apache.shardingsphere.database.protocol.binary.BinaryCell;
 import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.bind.protocol.PostgreSQLBinaryProtocolValue;
 import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.bind.protocol.PostgreSQLBinaryProtocolValueFactory;
@@ -50,7 +49,6 @@ import java.util.regex.Pattern;
 /**
  * Data row packet for PostgreSQL.
  */
-@RequiredArgsConstructor
 @Getter
 public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
     
@@ -80,7 +78,13 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
     
     private final Collection<Integer> columnTypes;
     
-    private final String sessionTimeZone;
+    private final ZoneId sessionTimeZone;
+    
+    public  PostgreSQLDataRowPacket(final Collection<Object> data, final Collection<Integer> columnTypes, final String sessionTimeZone) {
+        this.data = data;
+        this.columnTypes = columnTypes;
+        this.sessionTimeZone = getSessionZone(sessionTimeZone);
+    }
     
     @Override
     protected void write(final PostgreSQLPacketPayload payload) {
@@ -129,9 +133,9 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } else if (Types.TIME_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalTime) {
-                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(getSessionZone(sessionTimeZone)));
+                formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(sessionTimeZone));
             } else if (each instanceof OffsetTime) {
-                formatted = TIME_FORMATTER.format((OffsetTime) each);
+                formatted = TIME_FORMATTER.format(((OffsetTime) each).atDate(LocalDate.now()).toInstant().atZone(sessionTimeZone));
             } else {
                 formatted = formatToPostgresTimestamp(each.toString());
             }
@@ -141,11 +145,11 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
         } else if (Types.TIMESTAMP_WITH_TIMEZONE == columnType) {
             String formatted = "";
             if (each instanceof LocalDateTime) {
-                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(getSessionZone(sessionTimeZone)));
+                formatted = DATE_TIME_FORMATTER.format(((LocalDateTime) each).atZone(sessionTimeZone));
             } else if (each instanceof OffsetDateTime) {
-                formatted = DATE_TIME_FORMATTER.format((OffsetDateTime) each);
+                formatted = DATE_TIME_FORMATTER.format(((OffsetDateTime) each).toInstant().atZone(sessionTimeZone));
             } else if (each instanceof Timestamp) {
-                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(getSessionZone(sessionTimeZone)));
+                formatted = DATE_TIME_FORMATTER.format(((Timestamp) each).toLocalDateTime().atZone(sessionTimeZone));
             } else {
                 formatted = formatToPostgresTimestamp(each.toString());
             }

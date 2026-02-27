@@ -214,20 +214,20 @@ class PostgreSQLDataRowPacketTest {
                         Types.TIMESTAMP_WITH_TIMEZONE,
                         Types.TIMESTAMP_WITH_TIMEZONE,
                         Types.TIMESTAMP_WITH_TIMEZONE)),
-                "Asia/Kolkata");
+                "+05:30");
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
-        ZoneOffset systemOffset = ZoneId.of("Asia/Kolkata").getRules()
+        ZoneOffset systemOffset = ZoneId.of("+05:30").getRules()
                 .getOffset(LocalDateTime.of(2022, 10, 12, 10, 0, 0, 123_456_000));
-        byte[] res1 = "2022-10-12 10:00:00+05:30:01".getBytes(StandardCharsets.UTF_8);
+        byte[] res1 = "2022-10-12 09:59:59+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res2 = "2022-10-12 10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res3 = "2022-10-12 10:00:00.123456+05:30".getBytes(StandardCharsets.UTF_8);
-        byte[] res4 = "2022-10-12 10:00:00.12345+02:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res4 = "2022-10-12 13:00:00.12345+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res5 = ("2022-10-12 10:00:00.123456" + systemOffset.getId()).getBytes(StandardCharsets.UTF_8);
-        byte[] res6 = "2022-10-12 10:00:00-02:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res6 = "2022-10-12 18:00:00+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res7 = "2022-10-12 10:00:00.12+00:00".getBytes(StandardCharsets.UTF_8);
         byte[] res8 = "2022-10-12 10:00:00+00:00".getBytes(StandardCharsets.UTF_8);
-        byte[] res9 = ("2022-10-12 10:00:00.123456" + systemOffset).getBytes(StandardCharsets.UTF_8);
+        byte[] res9 = ("2022-10-12 10:00:00.123456" + systemOffset.getId()).getBytes(StandardCharsets.UTF_8);
         
         inOrder.verify(payload).writeInt4(res1.length);
         inOrder.verify(payload).writeBytes(res1);
@@ -270,13 +270,13 @@ class PostgreSQLDataRowPacketTest {
                         Types.TIME_WITH_TIMEZONE,
                         Types.TIME_WITH_TIMEZONE,
                         Types.TIME_WITH_TIMEZONE)),
-                "Asia/Kolkata");
+                "+05:30");
         actual.write(payload);
         InOrder inOrder = Mockito.inOrder(payload);
-        ZoneOffset systemOffset = ZoneId.of("Asia/Kolkata").getRules()
+        ZoneOffset systemOffset = ZoneId.of("+05:30").getRules()
                 .getOffset(LocalTime.of(10, 0, 12, 123_000_000).atDate(LocalDate.now()));
         byte[] res1 = "10:00:00+05:30".getBytes(StandardCharsets.UTF_8);
-        byte[] res2 = "10:00:00.1-02:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res2 = "18:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res3 = "10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res4 = "10:00:00.123456+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res5 = "10:00:00.12345+05:30".getBytes(StandardCharsets.UTF_8);
