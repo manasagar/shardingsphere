@@ -80,7 +80,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
     
     private final ZoneId sessionTimeZone;
     
-    public  PostgreSQLDataRowPacket(final Collection<Object> data, final Collection<Integer> columnTypes, final String sessionTimeZone) {
+    public PostgreSQLDataRowPacket(final Collection<Object> data, final Collection<Integer> columnTypes, final String sessionTimeZone) {
         this.data = data;
         this.columnTypes = columnTypes;
         this.sessionTimeZone = getSessionZone(sessionTimeZone);

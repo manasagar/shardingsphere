@@ -18,7 +18,7 @@
 package org.apache.shardingsphere.database.protocol.postgresql.packet.command.query;
 
 import org.apache.shardingsphere.database.protocol.binary.BinaryCell;
-import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.PostgreSQLColumnType;
+import org.apache.shardingsphere.database.protocol.postgresql.packet.command.query.extended.PostgreSQLBinaryColumnType;
 import org.apache.shardingsphere.database.protocol.postgresql.packet.identifier.PostgreSQLMessagePacketType;
 import org.apache.shardingsphere.database.protocol.postgresql.payload.PostgreSQLPacketPayload;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +33,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.SQLXML;
@@ -88,14 +87,14 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertWriteWithNull() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(null), Collections.singleton(PostgreSQLColumnType.INT4.getValue()), "UTC");
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(null), Collections.singleton(Types.INTEGER), "UTC");
         actual.write(payload);
         verify(payload).writeInt4(0xFFFFFFFF);
     }
     
     @Test
     void assertWriteWithBytes() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new byte[]{'a'}), Collections.singleton(PostgreSQLColumnType.BYTEA.getValue()), "UTC");
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(new byte[]{'a'}), Collections.singleton(Types.VARCHAR), "UTC");
         actual.write(payload);
         byte[] expectedBytes = buildExpectedByteaText(new byte[]{'a'});
         verify(payload).writeInt4(expectedBytes.length);
@@ -105,7 +104,7 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteWithSQLXML() throws SQLException {
         when(sqlxml.getString()).thenReturn("value");
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()), "UTC");
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(Types.VARCHAR), "UTC");
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
         verify(payload).writeInt4(valueBytes.length);
@@ -114,7 +113,7 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertWriteWithString() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton("value"), Collections.singleton(PostgreSQLColumnType.VARCHAR.getValue()), "UTC");
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton("value"), Collections.singleton(Types.VARCHAR), "UTC");
         assertThat(actual.getData(), is(Collections.singleton("value")));
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
@@ -124,7 +123,7 @@ class PostgreSQLDataRowPacketTest {
     
     @Test
     void assertInequalTypeColumn() {
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Arrays.asList("value", "work"), Collections.singleton(PostgreSQLColumnType.VARCHAR.getValue()), "UTC");
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Arrays.asList("value", "work"), Collections.singleton(Types.VARCHAR), "UTC");
         assertThat(actual.getData(), is(Arrays.asList("value", "work")));
         actual.write(payload);
         byte[] valueBytes = "value".getBytes(StandardCharsets.UTF_8);
@@ -348,7 +347,7 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteWithSQLXML4Error() throws SQLException {
         when(sqlxml.getString()).thenThrow(new SQLException("mock"));
-        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(PostgreSQLColumnType.XML.getValue()), "UTC");
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singleton(sqlxml), Collections.singleton(Types.SQLXML), "UTC");
         assertThrows(RuntimeException.class, () -> actual.write(payload));
         verify(payload, never()).writeStringEOF(any());
     }
@@ -356,8 +355,8 @@ class PostgreSQLDataRowPacketTest {
     @Test
     void assertWriteBinaryNull() {
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(
-                Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, null)),
-                Collections.singleton(PostgreSQLColumnType.INT4.getValue()), "UTC");
+                Collections.singleton(new BinaryCell(PostgreSQLBinaryColumnType.INT4, null)),
+                Collections.singleton(PostgreSQLBinaryColumnType.INT4.getValue()), "UTC");
         actual.write(payload);
         verify(payload).writeInt2(1);
         verify(payload).writeInt4(0xFFFFFFFF);
@@ -367,8 +366,8 @@ class PostgreSQLDataRowPacketTest {
     void assertWriteBinaryInt4() {
         final int value = 12345678;
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(
-                Collections.singleton(new BinaryCell(PostgreSQLColumnType.INT4, value)),
-                Collections.singleton(PostgreSQLColumnType.INT4.getValue()), "UTC");
+                Collections.singleton(new BinaryCell(PostgreSQLBinaryColumnType.INT4, value)),
+                Collections.singleton(PostgreSQLBinaryColumnType.INT4.getValue()), "UTC");
         actual.write(payload);
         verify(payload).writeInt2(1);
         verify(payload).writeInt4(4);
