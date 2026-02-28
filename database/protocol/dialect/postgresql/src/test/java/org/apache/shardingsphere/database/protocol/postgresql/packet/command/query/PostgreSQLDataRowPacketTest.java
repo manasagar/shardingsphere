@@ -77,7 +77,18 @@ class PostgreSQLDataRowPacketTest {
                 Arguments.of("+05:30", "+05:30"),
                 Arguments.of("-08:00", "-08:00"),
                 Arguments.of("+00:00", "+00:00"),
-                Arguments.of("+99:99", "+00:00"));
+                Arguments.of("GMT+8", "+08:00"));
+    }
+    
+    static Stream<Arguments> timezoneOffsetTestCases() {
+        return Stream.of(
+                Arguments.of(null, "+00:00", "2023-10-15 09:00:45"),
+                Arguments.of("UTC", "+00:00", "2023-10-15 09:00:45"),
+                Arguments.of("America/New_York", "-04:00", "2023-10-15 05:00:45"),
+                Arguments.of("+05:30", "+05:30", "2023-10-15 14:30:45"),
+                Arguments.of("-08:00", "-08:00", "2023-10-15 01:00:45"),
+                Arguments.of("+00:00", "+00:00", "2023-10-15 09:00:45"),
+                Arguments.of("GMT+8", "+08:00", "2023-10-15 17:00:45"));
     }
     
     @BeforeEach
@@ -140,6 +151,20 @@ class PostgreSQLDataRowPacketTest {
                 Collections.singleton(Types.TIMESTAMP_WITH_TIMEZONE),
                 sessionTimezone);
         byte[] res = ("2023-10-15 14:30:45" + offset).getBytes(StandardCharsets.UTF_8);
+        packet.write(payload);
+        
+        verify(payload).writeInt4(res.length);
+        verify(payload).writeBytes(res);
+    }
+    
+    @ParameterizedTest
+    @MethodSource("timezoneOffsetTestCases")
+    void assertTimezoneHandlingOffset(final String sessionTimezone, final String offset, final String result) {
+        PostgreSQLDataRowPacket packet = new PostgreSQLDataRowPacket(
+                Collections.singleton(OffsetDateTime.of(2023, 10, 15, 14, 30, 45, 0, ZoneOffset.ofHoursMinutes(5, 30))),
+                Collections.singleton(Types.TIMESTAMP_WITH_TIMEZONE),
+                sessionTimezone);
+        byte[] res = (result + offset).getBytes(StandardCharsets.UTF_8);
         packet.write(payload);
         
         verify(payload).writeInt4(res.length);
@@ -275,7 +300,7 @@ class PostgreSQLDataRowPacketTest {
         ZoneOffset systemOffset = ZoneId.of("+05:30").getRules()
                 .getOffset(LocalTime.of(10, 0, 12, 123_000_000).atDate(LocalDate.now()));
         byte[] res1 = "10:00:00+05:30".getBytes(StandardCharsets.UTF_8);
-        byte[] res2 = "18:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
+        byte[] res2 = "10:00:00.1-02:30".getBytes(StandardCharsets.UTF_8);
         byte[] res3 = "10:00:00.1+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res4 = "10:00:00.123456+05:30".getBytes(StandardCharsets.UTF_8);
         byte[] res5 = "10:00:00.12345+05:30".getBytes(StandardCharsets.UTF_8);

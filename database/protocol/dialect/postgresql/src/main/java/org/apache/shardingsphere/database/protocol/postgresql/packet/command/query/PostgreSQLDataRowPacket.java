@@ -135,7 +135,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
             if (each instanceof LocalTime) {
                 formatted = TIME_FORMATTER.format(((LocalTime) each).atDate(LocalDate.now()).atZone(sessionTimeZone));
             } else if (each instanceof OffsetTime) {
-                formatted = TIME_FORMATTER.format(((OffsetTime) each).atDate(LocalDate.now()).toInstant().atZone(sessionTimeZone));
+                formatted = TIME_FORMATTER.format((OffsetTime) each);
             } else {
                 formatted = formatToPostgresTimestamp(each.toString());
             }
@@ -223,23 +223,7 @@ public final class PostgreSQLDataRowPacket extends PostgreSQLIdentifierPacket {
             return ZoneId.of("UTC");
         }
         String timeZone = sessionTimeZone.replaceAll("^['\"]|['\"]$", "").trim();
-        if (ZoneId.getAvailableZoneIds().contains(timeZone)) {
-            return ZoneId.of(timeZone);
-        } else if (OFFSET_PATTERN.matcher(timeZone).matches() && isValidOffset(timeZone)) {
-            return ZoneId.of(timeZone);
-        }
-        return ZoneId.of("UTC");
-    }
-    
-    private boolean isValidOffset(final String offsetStr) {
-        String[] parts = offsetStr.substring(1).split(":");
-        int hours = Integer.parseInt(parts[0]);
-        int minutes = Integer.parseInt(parts[1]);
-        int seconds = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
-        boolean validHours = hours >= 0 && hours <= 18;
-        boolean validMinutes = minutes >= 0 && minutes <= 59;
-        boolean validSeconds = seconds >= 0 && seconds <= 59;
-        return validHours && validMinutes && validSeconds;
+        return ZoneId.of(timeZone);
     }
     
     @Override
